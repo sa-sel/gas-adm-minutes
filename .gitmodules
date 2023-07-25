@@ -1,0 +1,7 @@
+[submodule "src/lib"]
+	path = src/lib
+	url = git@github.com:sa-sel/gas-lib.git
+[submodule "submodule.src/lib.path"]
+	path = src/lib
+	url = git@github.com:sa-sel/gas-lib.git
+	branch = main
