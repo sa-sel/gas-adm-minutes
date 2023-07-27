@@ -14,6 +14,8 @@
     "paths": {
       "@lib": ["lib/src"],
       "@lib/*": ["lib/src/*"],
+      "@adm-control": ["adm-control"],
+      "@adm-control/*": ["adm-control/*"],
       "@globals": ["lib/src/utils/constants/globals.constant.ts"],
       "@models": ["models"],
       "@utils/*": ["utils/*"],
