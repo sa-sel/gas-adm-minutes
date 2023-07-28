@@ -40,9 +40,9 @@ const buildDiscordEmbeds = (meetingTitle: string, meetingMinutes: File, meetingE
     const vicePresident = searchValueInTableByKey(meetingData, SaDepartment.VicePresidency);
     const secretary = searchValueInTableByKey(meetingData, SaDepartment.Secretary);
 
-    fields.pushIf(president, { name: SaDepartment.Presidency, value: president, inline: true });
-    fields.pushIf(vicePresident, { name: SaDepartment.VicePresidency, value: vicePresident, inline: true });
-    fields.pushIf(secretary, { name: SaDepartment.Secretary, value: secretary, inline: true });
+    fields.pushIf(president, { name: SaDepartment.Presidency, value: president, inline: false });
+    fields.pushIf(vicePresident, { name: SaDepartment.VicePresidency, value: vicePresident, inline: false });
+    fields.pushIf(secretary, { name: SaDepartment.Secretary, value: secretary, inline: false });
   }
 
   return [
@@ -60,6 +60,8 @@ const buildDiscordEmbeds = (meetingTitle: string, meetingMinutes: File, meetingE
 };
 
 export const actuallyFinishMeeting = (meetingEnd: Date, logger?: SheetLogger) => {
+  logger?.log(DialogTitle.InProgress, `Execução iniciada para reunião de ${meetingEnd.asDateString()}`);
+
   const minutesDocFile = substituteVariablesInFile(DriveApp.getFileById(GS.doc.getId()), {
     [MeetingVariable.End]: meetingEnd.asTime(),
   });
@@ -67,7 +69,11 @@ export const actuallyFinishMeeting = (meetingEnd: Date, logger?: SheetLogger) =>
   logger?.log(DialogTitle.InProgress, `Horário de fim da reunião registrado: ${meetingEnd.asTimestamp()}`);
 
   const minutesPdf = exportToPdf(minutesDocFile).moveTo(minutesDocFile.getParents().next());
-  const meetingTitle = minutesDocFile.getName().split(' - ')[1];
+  const meetingTitle = (
+    GS.doc.getBody().findText('Ata - Reunião ')?.getElement()?.asText()?.getText() || // get title from body
+    // or from name
+    minutesDocFile.getName()
+  ).split(' - ')[1];
 
   logger?.log(DialogTitle.InProgress, 'PDF da ata exportado.');
 
@@ -122,5 +128,4 @@ export const finishMeeting = () =>
       () => actuallyFinishMeeting(meetingEnd, logger),
       logger,
     );
-    logger?.log(DialogTitle.InProgress, `Execução iniciada para reunião de ${meetingEnd.asDateString()}`);
   });
