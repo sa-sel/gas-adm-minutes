@@ -16,6 +16,8 @@
       "@lib/*": ["lib/src/*"],
       "@adm-control": ["adm-control"],
       "@adm-control/*": ["adm-control/*"],
+      "@hr": ["hr"],
+      "@hr/*": ["hr/*"],
       "@globals": ["lib/src/utils/constants/globals.constant.ts"],
       "@models": ["models"],
       "@utils/*": ["utils/*"],

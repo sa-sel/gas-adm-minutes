@@ -1,4 +1,5 @@
-import { ACGS, getAllMembers, getNamedValue, NamedRange } from '@adm-control';
+import { ACGS, getNamedValue, NamedRange } from '@adm-control';
+import { getAllMemberEmails } from '@hr';
 import {
   alert,
   confirm,
@@ -71,7 +72,7 @@ export const actuallyFinishMeeting = (meetingEnd: Date, logger?: SheetLogger) =>
   logger?.log(DialogTitle.InProgress, 'PDF da ata exportado.');
 
   if (meetingTitle && ACGS.ss) {
-    const target = getAllMembers().map(m => m.email);
+    const target = getAllMemberEmails();
 
     if (target.length) {
       sendEmail({

@@ -1,5 +1,5 @@
 export const enum NamedRange {
-  ProjectMembers = 'ProjectMembers',
+  SheetIdHR = 'MemberControlSpreadsheetId',
   WebhookBoardOfDirectors = 'WebhookBoardDirectors',
   WebhookGeneral = 'WebhookGeneral',
 }
