@@ -1,5 +1,5 @@
 import { ACGS, getNamedValue, NamedRange } from '@adm-control';
-import { getAllMemberEmails } from '@hr';
+import { getAllMemberEmails, HRGS } from '@hr';
 import {
   alert,
   confirm,
@@ -17,6 +17,7 @@ import {
   SheetLogger,
   substituteVariablesInFile,
   substituteVariablesInString,
+  Transaction,
 } from '@lib';
 import { searchValueInTableByKey } from '@utils/functions';
 
@@ -68,49 +69,87 @@ export const actuallyFinishMeeting = (meetingEnd: Date, logger?: SheetLogger) =>
 
   logger?.log(DialogTitle.InProgress, `Horário de fim da reunião registrado: ${meetingEnd.asTimestamp()}`);
 
-  const minutesPdf = exportToPdf(minutesDocFile).moveTo(minutesDocFile.getParents().next());
-  const meetingTitle = (
-    GS.doc.getBody().findText('Ata - Reunião ')?.getElement()?.asText()?.getText() || // get title from body
-    // or from name
-    minutesDocFile.getName()
-  ).split(' - ')[1];
+  let minutesPdf: File;
+  let meetingTitle: string;
 
-  logger?.log(DialogTitle.InProgress, 'PDF da ata exportado.');
+  new Transaction(logger)
+    .step({
+      forward: () => {
+        minutesPdf = exportToPdf(minutesDocFile).moveTo(minutesDocFile.getParents().next());
+        logger?.log(DialogTitle.InProgress, `PDF da ata exportado: ${minutesPdf.getUrl()}`);
+      },
+      backward: () => minutesPdf?.setTrashed(true),
+    })
+    .step({
+      forward: () => {
+        meetingTitle = (
+          GS.doc.getBody().findText('Ata - Reunião ')?.getElement()?.asText()?.getText() || // get title from body
+          // or from name
+          minutesDocFile.getName()
+        ).split(' - ')[1];
+      },
+    })
+    .step({
+      forward: () => {
+        if (meetingTitle && HRGS.ss) {
+          const target = getAllMemberEmails();
 
-  if (meetingTitle && ACGS.ss) {
-    const target = getAllMemberEmails();
+          if (target.length) {
+            sendEmail({
+              subject: `[SA-SEL] ${meetingTitle} - ${meetingEnd.asDateString()}`,
+              target,
+              htmlBody: substituteVariablesInString(emailBodyHtml, {
+                [MeetingVariable.MeetingType]: meetingTitle,
+              }),
+              attachments: [minutesPdf],
+            });
 
-    if (target.length) {
-      sendEmail({
-        subject: `[SA-SEL] ${meetingTitle} - ${meetingEnd.asDateString()}`,
-        target,
-        htmlBody: substituteVariablesInString(emailBodyHtml, {
-          [MeetingVariable.MeetingType]: meetingTitle,
-        }),
-        attachments: [minutesPdf],
-      });
+            logger?.log(DialogTitle.InProgress, 'Ata enviada por email para os membros.');
+          }
+        }
+      },
+    })
+    .step({
+      forward: () => {
+        if (meetingTitle) {
+          const boardWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookBoardOfDirectors));
+          const generalWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookGeneral));
+          const embeds: DiscordEmbed[] = buildDiscordEmbeds(meetingTitle, minutesPdf, meetingEnd);
 
-      logger?.log(DialogTitle.InProgress, 'Ata enviada por email para os membros.');
-    }
+          boardWebhook.post({ embeds });
+          generalWebhook.post({ embeds });
 
-    const boardWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookBoardOfDirectors));
-    const generalWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookGeneral));
-    const embeds: DiscordEmbed[] = buildDiscordEmbeds(meetingTitle, minutesPdf, meetingEnd);
+          if (boardWebhook.url.isUrl() || generalWebhook.url.isUrl()) {
+            logger?.log(DialogTitle.InProgress, 'Ata enviada no Discord.');
+          }
+        }
+      },
+    })
+    .run();
 
-    boardWebhook.post({ embeds });
-    generalWebhook.post({ embeds });
-
-    if (boardWebhook.url.isUrl() || generalWebhook.url.isUrl()) {
-      logger?.log(DialogTitle.InProgress, 'Ata enviada no Discord.');
-    }
-  }
-
-  alert({
-    title: DialogTitle.Success,
-    body: `Ata exportada para PDF com sucesso, o documento editável será excluído. Link:\n${minutesPdf.getUrl()}`,
-  });
-  logger?.log(DialogTitle.Success, 'Ata exportada para PDF com sucesso, documento editável será excluído');
-  minutesDocFile.setTrashed(true);
+  new Transaction(logger)
+    .step({
+      forward: () => {
+        alert({
+          title: DialogTitle.Success,
+          body: `Ata exportada para PDF com sucesso, o documento editável será excluído. Link:\n${minutesPdf.getUrl()}`,
+        });
+        logger?.log(DialogTitle.Success, 'Ata exportada para PDF com sucesso, documento editável será excluído');
+      },
+      backward: () => {
+        alert({
+          title: DialogTitle.Error,
+          body: `Houve um erro ao excluir o documento editável. Favor excluí-lo manualmente. Link:\n${minutesDocFile.getUrl()}`,
+        });
+        logger?.log(DialogTitle.Error, `Houve um erro ao excluir o documento editável. Link:\n${minutesDocFile.getUrl()}`);
+      },
+    })
+    .step({
+      forward: () => {
+        minutesDocFile.setTrashed(true);
+      },
+    })
+    .run();
 };
 
 export const finishMeeting = () =>
