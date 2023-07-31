@@ -111,7 +111,7 @@ export const actuallyFinishMeeting = (meetingEnd: Date, logger?: SheetLogger) =>
     })
     .step({
       forward: () => {
-        if (meetingTitle) {
+        if (meetingTitle && ACGS.ss) {
           const boardWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookBoardOfDirectors));
           const generalWebhook = new DiscordWebhook(getNamedValue(NamedRange.WebhookGeneral));
           const embeds: DiscordEmbed[] = buildDiscordEmbeds(meetingTitle, minutesPdf, meetingEnd);
